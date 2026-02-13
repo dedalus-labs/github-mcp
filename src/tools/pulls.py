@@ -31,7 +31,7 @@ from gh.types import (
 )
 
 
-def _parse_pr(raw: dict) -> PrInfo:
+def _parse_pr(raw: JSONObject) -> PrInfo:
     """Parse a raw API dict into PrInfo."""
     mergeable = raw.get("mergeable")
     return PrInfo(

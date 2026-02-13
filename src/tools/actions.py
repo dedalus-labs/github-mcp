@@ -182,9 +182,9 @@ async def gh_rerun_workflow(owner: str, repo: str, run_id: int) -> GhResult:
 # --- CI Diagnosis (compound) ---
 
 
-def _parse_job(raw: dict) -> WorkflowJobInfo:
+def _parse_job(raw: JSONObject) -> WorkflowJobInfo:
     """Parse a raw job dict into WorkflowJobInfo with steps."""
-    raw_steps = raw.get("steps", []) if isinstance(raw.get("steps"), list) else []
+    raw_steps = raw.get("steps")
     steps = [
         WorkflowJobStep(
             name=_str(step.get("name")),
@@ -192,7 +192,8 @@ def _parse_job(raw: dict) -> WorkflowJobInfo:
             conclusion=_opt_str(step.get("conclusion")),
             number=_int(step.get("number")),
         )
-        for step in raw_steps
+        for step in (raw_steps if isinstance(raw_steps, list) else [])
+        if isinstance(step, dict)
     ]
     return WorkflowJobInfo(
         id=_int(raw.get("id")),

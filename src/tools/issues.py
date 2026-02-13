@@ -25,7 +25,7 @@ from gh.request import _int, _labels, _nested_str, _opt_str, _str, build_url, re
 from gh.types import CommentInfo, IssueInfo, JSONObject
 
 
-def _parse_issue(raw: dict) -> IssueInfo:
+def _parse_issue(raw: JSONObject) -> IssueInfo:
     """Parse a raw API dict into IssueInfo."""
     return IssueInfo(
         number=_int(raw.get("number")),
@@ -37,7 +37,7 @@ def _parse_issue(raw: dict) -> IssueInfo:
     )
 
 
-def _parse_comment(raw: dict) -> CommentInfo:
+def _parse_comment(raw: JSONObject) -> CommentInfo:
     """Parse a raw API dict into CommentInfo."""
     return CommentInfo(
         id=_int(raw.get("id")),

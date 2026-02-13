@@ -30,7 +30,7 @@ from gh.types import (
 )
 
 
-def _parse_repo(raw: dict) -> RepoInfo:
+def _parse_repo(raw: JSONObject) -> RepoInfo:
     """Parse a raw API dict into RepoInfo."""
     return RepoInfo(
         name=_str(raw.get("name")),
