@@ -63,7 +63,7 @@ print(
 github = Connection(
     name="github-mcp",
     secrets=SecretKeys(token="GITHUB_TOKEN"),  # noqa: S106
-    base_url="https://api.github.com",
+    base_url=os.getenv("GITHUB_BASE_URL", "https://api.github.com"),
     auth_header_format="token {api_key}",
 )
 

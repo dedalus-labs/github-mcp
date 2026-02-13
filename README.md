@@ -2,9 +2,10 @@
 
 A GitHub MCP server built with the Dedalus MCP framework.
 
-Connects to the GitHub REST and GraphQL APIs via a personal access token
-(or OAuth through Dedalus Auth) and exposes LLM-friendly tools for
+Connects to the GitHub REST API and exposes LLM-friendly tools for
 repositories, issues, pull requests, Actions CI, search, and more.
+Credentials are injected via DAuth when deployed on Dedalus; a PAT is
+only needed for local testing.
 
 ## Features
 
@@ -24,14 +25,22 @@ cp .env.example .env
 # Edit .env with your keys
 ```
 
-Required:
+For local testing:
+
 - `GITHUB_TOKEN` — a GitHub PAT (classic or fine-grained). Needs `repo` scope at minimum.
 
-Optional:
-- `GITHUB_BASE_URL` — defaults to `https://api.github.com` (set for GitHub Enterprise)
-- `DEDALUS_API_KEY` — your Dedalus API key (for deployed usage)
+When deployed on Dedalus, `GITHUB_TOKEN` is **not** needed. DAuth handles credential
+injection at runtime — the server never sees the raw token.
+
+For deployed / client usage:
+
+- `DEDALUS_API_KEY` — your Dedalus API key (`dsk_*`)
 - `DEDALUS_API_URL` — defaults to `https://api.dedaluslabs.ai`
 - `DEDALUS_AS_URL` — defaults to `https://as.dedaluslabs.ai`
+
+Optional (both local and deployed):
+
+- `GITHUB_BASE_URL` — defaults to `https://api.github.com` (set for GitHub Enterprise)
 
 ## Usage
 
