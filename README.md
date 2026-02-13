@@ -1,156 +1,138 @@
-# GitHub MCP Server
+# github-mcp
 
-A GitHub MCP server built with the [Dedalus MCP framework](https://dedaluslabs.ai). Provides secure access to GitHub APIs with credential encryption and JIT token exchange.
+A GitHub MCP server built with the Dedalus MCP framework.
+
+Connects to the GitHub REST and GraphQL APIs via a personal access token
+(or OAuth through Dedalus Auth) and exposes LLM-friendly tools for
+repositories, issues, pull requests, Actions CI, search, and more.
 
 ## Features
 
-### Available Tools
-
-#### User
-
-| Tool | Description |
-|------|-------------|
-| `gh_whoami` | Get authenticated user's profile |
-
-#### Repositories
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_repos` | List repositories for authenticated user |
-| `gh_get_repo` | Get details for a specific repository |
-
-#### Files
-
-| Tool | Description |
-|------|-------------|
-| `gh_get_file` | Get file contents from a repository |
-| `gh_put_file` | Create or update a file in a repository |
-| `gh_delete_file` | Delete a file from a repository |
-
-#### Issues
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_issues` | List issues in a repository |
-| `gh_get_issue` | Get a specific issue by number |
-
-#### Pull Requests
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_prs` | List pull requests in a repository |
-| `gh_get_pr` | Get a specific pull request by number |
-
-#### Workflows
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_workflows` | List GitHub Actions workflows |
-| `gh_list_workflow_runs` | List workflow runs |
-| `gh_dispatch_workflow` | Trigger a workflow via dispatch event |
-| `gh_cancel_workflow_run` | Cancel a running workflow |
-| `gh_rerun_workflow` | Re-run a workflow |
-
-#### Variables & Secrets
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_actions_variables` | List Actions variables |
-| `gh_list_secrets` | List Actions secrets (names only) |
-
-#### Deployments & Environments
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_deployments` | List deployments |
-| `gh_list_environments` | List environments |
-
-#### Commit Status
-
-| Tool | Description |
-|------|-------------|
-| `gh_get_commit_status` | Get combined commit status |
-| `gh_list_commit_statuses` | List individual status checks |
-
-#### Discussions
-
-| Tool | Description |
-|------|-------------|
-| `gh_list_discussions` | List GitHub Discussions (GraphQL) |
-
-## Prerequisites
-
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/) package manager
-- GitHub Personal Access Token
-- Dedalus API Key
+- **Repositories**: list, inspect, branch enumeration, create/delete branches, compare refs
+- **Files**: read, create/update, delete
+- **Issues & comments**: CRUD, filtering, labels, assignees
+- **Pull requests**: list, inspect, create, update, merge, changed files
+- **PR reviews**: list reviews, inline code review comments
+- **Actions CI**: workflows, runs, dispatch, rerun, step-level failure diagnosis
+- **Commits & checks**: history, legacy Status API, modern Check Runs API
+- **Search**: code search, issue/PR search across GitHub
 
 ## Setup
 
-1. **Clone the repository**
-
 ```bash
-git clone https://github.com/dedalus-labs/github-mcp.git
-cd github-mcp
+cp .env.example .env
+# Edit .env with your keys
 ```
 
-2. **Install dependencies**
+Required:
+- `GITHUB_TOKEN` — a GitHub PAT (classic or fine-grained). Needs `repo` scope at minimum.
+
+Optional:
+- `GITHUB_BASE_URL` — defaults to `https://api.github.com` (set for GitHub Enterprise)
+- `DEDALUS_API_KEY` — your Dedalus API key (for deployed usage)
+- `DEDALUS_API_URL` — defaults to `https://api.dedaluslabs.ai`
+- `DEDALUS_AS_URL` — defaults to `https://as.dedaluslabs.ai`
+
+## Usage
+
+### Run the server
 
 ```bash
-uv sync
+uv run src/main.py
 ```
 
-3. **Configure environment variables**
+Starts on `http://127.0.0.1:8080/mcp` (Streamable HTTP, stateless).
 
-Create a `.env` file based on .env.example:
+### Test locally
 
+Verify your connection config and token work without deploying:
 
-## Client Usage
-
-### Using DedalusRunner
-
-```python
+```bash
+PYTHONPATH=src uv run python -c "
 import asyncio
-import os
+from dotenv import load_dotenv; load_dotenv()
+from dedalus_mcp.testing import ConnectionTester, TestRequest
+from gh.config import github
 
-from dotenv import load_dotenv
-from dedalus_labs import AsyncDedalus, DedalusRunner
-from dedalus_mcp.auth import Connection, SecretKeys, SecretValues
+async def test():
+    t = ConnectionTester.from_env(github)
+    r = await t.request(TestRequest(path='/user'))
+    print(f'{r.status} — {r.body[\"login\"]}' if r.success else f'FAIL: {r.status}')
 
-load_dotenv()
-
-# Define the GitHub connection
-github = Connection(
-    name="github-mcp",
-    secrets=SecretKeys(token="GITHUB_TOKEN"),
-    base_url="https://api.github.com",
-)
-
-# Bind credentials (encrypted client-side, decrypted at dispatch time)
-github_secrets = SecretValues(github, token=os.getenv("GITHUB_TOKEN", ""))
-
-
-async def main():
-    client = AsyncDedalus(
-        api_key=os.getenv("DEDALUS_API_KEY"),
-        base_url=os.getenv("DEDALUS_API_URL"),
-        as_base_url=os.getenv("DEDALUS_AS_URL"),
-    )
-    runner = DedalusRunner(client)
-
-    result = await runner.run(
-        input="List my GitHub repositories, limit to 3.",
-        model="openai/gpt-5",
-        mcp_servers=["issac/github-mcp"],
-        credentials=[github_secrets],
-    )
-
-    print(result.output)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(test())
+"
 ```
+
+A full client demo (DedalusRunner + OAuth browser flow) is in `src/_client.py`.
+
+### Lint and typecheck
+
+```bash
+uv run --group lint ruff check src/
+uv run --group lint ruff format --check src/
+uv run --group lint ty check
+```
+
+## Available Tools
+
+| Tool | Description | R/W |
+|------|-------------|-----|
+| `gh_whoami` | Get the authenticated user's profile | R |
+| `gh_list_repos` | List repositories for the authenticated user | R |
+| `gh_get_repo` | Get details for a specific repository | R |
+| `gh_list_branches` | List branches in a repository | R |
+| `gh_create_ref` | Create a git ref (branch/tag) remotely | W |
+| `gh_delete_branch` | Delete a branch remotely | W |
+| `gh_compare` | Compare two refs — commits and files changed | R |
+| `gh_get_file` | Get file contents from a repository | R |
+| `gh_put_file` | Create or update a file in a repository | W |
+| `gh_delete_file` | Delete a file from a repository | W |
+| `gh_list_issues` | List issues in a repository (excludes pull requests) | R |
+| `gh_get_issue` | Get a specific issue by number | R |
+| `gh_create_issue` | Create a new issue | W |
+| `gh_update_issue` | Update an existing issue (title, body, state, labels, assignees) | W |
+| `gh_list_comments` | List comments on an issue or pull request | R |
+| `gh_create_comment` | Create a comment on an issue or pull request | W |
+| `gh_list_prs` | List pull requests in a repository | R |
+| `gh_get_pr` | Get a specific pull request by number | R |
+| `gh_create_pr` | Create a pull request | W |
+| `gh_update_pr` | Update a PR (title, body, state, base branch) | W |
+| `gh_merge_pr` | Merge a pull request | W |
+| `gh_list_pr_files` | List files changed in a pull request | R |
+| `gh_list_pr_reviews` | List reviews on a pull request | R |
+| `gh_list_pr_review_comments` | List inline code review comments on a PR | R |
+| `gh_list_workflows` | List GitHub Actions workflows | R |
+| `gh_list_workflow_runs` | List workflow runs | R |
+| `gh_dispatch_workflow` | Trigger a workflow via dispatch event | W |
+| `gh_rerun_workflow` | Re-run a workflow | W |
+| `gh_ci_diagnosis` | Diagnose CI failures — run + jobs + failed steps | R |
+| `gh_list_commits` | List commits in a repository | R |
+| `gh_get_commit_status` | Get combined commit status for a ref (legacy Status API) | R |
+| `gh_list_commit_statuses` | List individual status checks (legacy Status API) | R |
+| `gh_list_check_runs` | List check runs for a ref (modern Checks API / Actions) | R |
+| `gh_search_code` | Search code across GitHub repositories | R |
+| `gh_search_issues` | Search issues and pull requests across GitHub | R |
+
+## Notes
+
+- Auth uses `token {api_key}` header format (GitHub PAT). For fine-grained tokens, grant the
+  specific repository permissions you need. Classic tokens need at least `repo` scope.
+- All list endpoints accept `per_page` (default 30, max 100) and pagination parameters.
+- `gh_list_issues` excludes pull requests by default (GitHub's REST API returns PRs as issues).
+- `gh_list_check_runs` is the modern Checks API — use this for GitHub Actions results.
+  `gh_get_commit_status` / `gh_list_commit_statuses` cover the legacy Status API only.
+- `gh_ci_diagnosis` is a compound tool: resolves a run (by ID or latest on a branch),
+  fetches all jobs, and returns step-level detail so the agent can see *which step* failed.
+- `gh_compare` returns commits and changed files between two refs — useful for reviewing
+  what a branch introduces without a local checkout.
+- `gh_create_ref` expects the full ref path (e.g. `refs/heads/my-branch`).
+  `gh_delete_branch` takes just the branch name.
+- `gh_list_pr_review_comments` returns inline (line-level) code review comments, which are
+  distinct from general issue comments returned by `gh_list_comments`.
+- `gh_search_code` requires at least one qualifier (e.g., `repo:`, `org:`, `user:`).
+- Write tools require a token with write permissions on the target repository.
+- `GITHUB_BASE_URL` supports GitHub Enterprise Server (`https://github.example.com/api/v3`).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT

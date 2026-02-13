@@ -5,6 +5,7 @@
 
 # Caches
 **/.cache/
+.ruff_cache/
 
 # Python
 **/__pycache__/
